@@ -1,0 +1,57 @@
+# C++ Build Artifacts
+build/
+out/
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.dylib
+*.a
+*.lib
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+!CMakeLists.txt
+
+# vcpkg
+vcpkg_installed/
+.vcpkg-root
+
+# Visual Studio / VS Code
+.vs/
+.vscode/
+*.vcxproj*
+*.sln
+*.user
+
+# Environment Files
+.env
+.env.local
+*.env
+
+# Logs
+*.log
+logs/
+
+# Docker
+.dockerignore
+
+# Operating System
+.DS_Store
+Thumbs.db
+*.swp
+*.tmp
+
+# IDE
+*.iml
+.idea/
+
+# Temporary Files
+temp/
+tmp/
+*.bak
