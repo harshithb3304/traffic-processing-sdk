@@ -11,57 +11,64 @@
 #include <nlohmann/json.hpp>
 #include "traffic_processor/kafka_producer.hpp"
 
-namespace traffic_processor {
+namespace traffic_processor
+{
 
-struct SdkConfig {
-    std::string accountId{"local-traffic-processor"};
-    std::size_t batchSize{100};
-    int batchTimeoutMs{5000};
-    KafkaConfig kafka; // Uses default localhost:9092
-};
+    struct SdkConfig
+    {
+        std::string accountId{"local-traffic-processor"};
+        std::size_t batchSize{100};
+        int batchTimeoutMs{5000};
+        KafkaConfig kafka; // Uses default localhost:9092
+    };
 
-struct RequestData {
-    std::string method;
-    std::string scheme;
-    std::string host;
-    std::string path;
-    std::string query;
-    nlohmann::json headers;
-    std::string bodyBase64;
-    std::string ip;
-    uint64_t startNs{0};
-};
+    struct RequestData
+    {
+        std::string method;
+        std::string scheme;
+        std::string host;
+        std::string path;
+        std::string query;
+        nlohmann::json headers;
+        std::string bodyText;
+        std::string bodyBase64;
+        std::string ip;
+        uint64_t startNs{0};
+    };
 
-struct ResponseData {
-    int status{0};
-    nlohmann::json headers;
-    std::string bodyBase64;
-    uint64_t endNs{0};
-};
+    struct ResponseData
+    {
+        int status{0};
+        nlohmann::json headers;
+        std::string bodyText;
+        std::string bodyBase64;
+        uint64_t endNs{0};
+    };
 
-class TrafficProcessorSdk {
-public:
-    static TrafficProcessorSdk& instance();
-    void initialize(); // Simple initialization with defaults
-    void capture(const RequestData& req, const ResponseData& res);
-    void shutdown();
+    class TrafficProcessorSdk
+    {
+    public:
+        static TrafficProcessorSdk &instance();
+        void initialize(); // Simple initialization with defaults
+        void capture(const RequestData &req, const ResponseData &res);
+        void shutdown();
 
-private:
-    TrafficProcessorSdk() = default;
-    ~TrafficProcessorSdk();
-    TrafficProcessorSdk(const TrafficProcessorSdk&) = delete;
-    TrafficProcessorSdk& operator=(const TrafficProcessorSdk&) = delete;
+    private:
+        TrafficProcessorSdk() = default;
+        ~TrafficProcessorSdk();
+        TrafficProcessorSdk(const TrafficProcessorSdk &) = delete;
+        TrafficProcessorSdk &operator=(const TrafficProcessorSdk &) = delete;
 
-    void workerLoop();
+        void workerLoop();
 
-    SdkConfig cfg_{};
-    std::unique_ptr<KafkaProducer> producer_;
+        SdkConfig cfg_{};
+        std::unique_ptr<KafkaProducer> producer_;
 
-    std::mutex mtx_;
-    std::condition_variable cv_;
-    std::queue<std::string> queue_;
-    std::atomic<bool> stop_{false};
-    std::thread worker_;
-};
+        std::mutex mtx_;
+        std::condition_variable cv_;
+        std::queue<std::string> queue_;
+        std::atomic<bool> stop_{false};
+        std::thread worker_;
+    };
 
 } // namespace traffic_processor
