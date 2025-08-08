@@ -26,16 +26,12 @@ services:
       timeout: 5s
       retries: 5
 
-  # Simple Python Traffic Processor (for quick testing)
+  # C++ Traffic Processor SDK
   traffic-processor:
     build:
       context: .
-      dockerfile: Dockerfile.simple
-    container_name: traffic-processor-simple
-    environment:
-      PROCESSOR_ACCOUNT_ID: "1000000"
-      KAFKA_URL: "kafka:19092"
-      KAFKA_TOPIC: "http.traffic"
+      dockerfile: Dockerfile
+    container_name: traffic-processor
     ports:
       - "8080:8080"
     depends_on:
