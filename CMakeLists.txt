@@ -30,11 +30,18 @@ target_link_libraries(traffic_processor_sdk
 )
 
 add_executable(crow_echo_server examples/crow_echo_server/main.cpp)
+
+# Platform-specific libraries
+if(WIN32)
+    set(PLATFORM_LIBS ws2_32 mswsock)
+else()
+    set(PLATFORM_LIBS pthread)
+endif()
+
 target_link_libraries(crow_echo_server PRIVATE 
     traffic_processor_sdk 
     Crow::Crow
-    ws2_32
-    mswsock
+    ${PLATFORM_LIBS}
 )
 set_target_properties(crow_echo_server PROPERTIES FOLDER examples)
 

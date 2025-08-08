@@ -15,9 +15,9 @@ static std::string maybe_base64(const std::string& body) {
 int main(int argc, char** argv) {
     (void)argc; (void)argv;
     
-    std::cout << "🚀 Starting Traffic Processor SDK Demo Server..." << std::endl;
+    std::cout << "Starting Traffic Processor SDK Demo Server..." << std::endl;
     TrafficProcessorSdk::instance().initialize(); // Simple local setup
-    std::cout << "✅ SDK initialized successfully" << std::endl;
+    std::cout << "SDK initialized successfully" << std::endl;
 
     crow::SimpleApp app;
 
@@ -59,18 +59,18 @@ int main(int argc, char** argv) {
         auto end = std::chrono::steady_clock::now().time_since_epoch();
         s.endNs = std::chrono::duration_cast<std::chrono::nanoseconds>(end).count();
 
-        std::cout << "🔵 HTTP Request: " << r.method << " " << r.path << " from " << r.ip << std::endl;
+        std::cout << "HTTP Request: " << r.method << " " << r.path << " from " << r.ip << std::endl;
         TrafficProcessorSdk::instance().capture(r, s);
-        std::cout << "📊 Traffic captured and queued for Kafka" << std::endl;
+        std::cout << "Traffic captured and queued for Kafka" << std::endl;
         return resp;
     });
 
-    std::cout << "🌐 Server starting on http://0.0.0.0:8080" << std::endl;
-    std::cout << "📡 Try: curl -X POST http://localhost:8080/echo -d '{\"test\":\"data\"}' -H 'Content-Type: application/json'" << std::endl;
+    std::cout << "Server starting on http://0.0.0.0:8080" << std::endl;
+    std::cout << "Try: curl -X POST http://localhost:8080/echo -d '{\"test\":\"data\"}' -H 'Content-Type: application/json'" << std::endl;
     
     app.port(8080).multithreaded().run();
     
-    std::cout << "🛑 Shutting down..." << std::endl;
+    std::cout << "Shutting down..." << std::endl;
     TrafficProcessorSdk::instance().shutdown();
     return 0;
 }

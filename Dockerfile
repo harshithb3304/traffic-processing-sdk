@@ -1,63 +1,78 @@
-# Multi-stage Dockerfile for C++ Traffic Processor SDK
-FROM ubuntu:22.04 AS builder
+# Fast build using only system packages + header-only Crow
+FROM ubuntu:22.04
 
-# Install build dependencies
+# Install system packages (fast, no source compilation of deps)
 RUN apt-get update && apt-get install -y \
     build-essential \
     cmake \
-    git \
-    curl \
-    zip \
-    unzip \
-    tar \
     pkg-config \
+    git \
+    librdkafka-dev \
+    nlohmann-json3-dev \
+    libfmt-dev \
+    libasio-dev \
+    ca-certificates \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install vcpkg
-WORKDIR /vcpkg
-RUN git clone https://github.com/Microsoft/vcpkg.git . && \
-    ./bootstrap-vcpkg.sh
-
-# Set up environment for vcpkg
-ENV VCPKG_ROOT=/vcpkg
-ENV PATH="${VCPKG_ROOT}:${PATH}"
-
-# Copy project files
 WORKDIR /app
-COPY vcpkg.json vcpkg-configuration.json ./
-COPY CMakeLists.txt ./
+
+# Fetch Crow headers (header-only usage, no build step)
+RUN git clone --depth 1 https://github.com/CrowCpp/Crow.git /tmp/crow \
+ && cp -r /tmp/crow/include/* /usr/local/include/ \
+ && rm -rf /tmp/crow
+
+# Copy source files
 COPY include/ include/
 COPY src/ src/
-COPY examples/ examples/
+COPY examples/crow_echo_server/ examples/crow_echo_server/
 
-# Install dependencies via vcpkg
-RUN vcpkg install --triplet=x64-linux
+# Generate a minimal CMake project that builds the SDK + Crow echo server
+COPY <<EOF CMakeLists.txt
+cmake_minimum_required(VERSION 3.16)
+project(traffic_processor_sdk LANGUAGES CXX)
 
-# Build the project
-RUN cmake -B build -S . \
-    -DCMAKE_TOOLCHAIN_FILE=/vcpkg/scripts/buildsystems/vcpkg.cmake \
-    -DCMAKE_BUILD_TYPE=Release && \
-    cmake --build build --config Release
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Runtime stage
-FROM ubuntu:22.04
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(RDKAFKA REQUIRED rdkafka)
 
-# Install runtime dependencies
-RUN apt-get update && apt-get install -y \
-    libssl3 \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+add_library(traffic_processor_sdk
+    src/kafka_producer.cpp
+    src/sdk.cpp
+)
 
-# Copy the built executable
-COPY --from=builder /app/build/crow_echo_server /usr/local/bin/
+target_include_directories(traffic_processor_sdk PUBLIC 
+    \${CMAKE_CURRENT_SOURCE_DIR}/include
+    \${RDKAFKA_INCLUDE_DIRS}
+)
 
-# Create non-root user
+target_link_libraries(traffic_processor_sdk PUBLIC 
+    \${RDKAFKA_LIBRARIES}
+    fmt
+    pthread
+)
+
+target_compile_options(traffic_processor_sdk PUBLIC \${RDKAFKA_CFLAGS_OTHER})
+
+add_executable(crow_echo_server examples/crow_echo_server/main.cpp)
+
+target_link_libraries(crow_echo_server PRIVATE 
+    traffic_processor_sdk
+    pthread
+)
+EOF
+
+# Build quickly (header-only Crow + system libs)
+RUN cmake -B build -S . && \
+    cmake --build build --parallel $(nproc)
+
+# Runtime setup
 RUN useradd -r -s /bin/false appuser
 USER appuser
 
-# Set environment to indicate Docker environment
 ENV DOCKER_ENV=true
-
 EXPOSE 8080
 
-CMD ["crow_echo_server"]
+CMD ["./build/crow_echo_server"]

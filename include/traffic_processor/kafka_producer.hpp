@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cppkafka/cppkafka.h>
+#include <librdkafka/rdkafka.h>
 #include <string>
 #include <vector>
 #include <memory>
@@ -30,12 +30,17 @@ struct KafkaConfig {
 class KafkaProducer {
 public:
     explicit KafkaProducer(const KafkaConfig& config);
+    ~KafkaProducer();
     void sendBatch(const std::vector<std::string>& jsonRecords);
 
 private:
     KafkaConfig config_;
-    std::unique_ptr<cppkafka::Producer> producer_;
-    std::string topic_;
+    rd_kafka_t* producer_;
+    rd_kafka_topic_t* topic_;
+    
+    // Non-copyable
+    KafkaProducer(const KafkaProducer&) = delete;
+    KafkaProducer& operator=(const KafkaProducer&) = delete;
 };
 
 } // namespace traffic_processor
