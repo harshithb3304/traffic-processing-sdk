@@ -8,7 +8,7 @@ find_package(nlohmann_json CONFIG REQUIRED)
 
 include(FetchContent)
 FetchContent_Declare(traffic_processor_sdk
-  GIT_REPOSITORY https://github.com/your-org/traffic-processing-sdk.git
+  GIT_REPOSITORY https://github.com/harshithb3304/traffic-processing-sdk.git
   GIT_TAG v0.1.0
 )
 FetchContent_MakeAvailable(traffic_processor_sdk)

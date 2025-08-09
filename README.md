@@ -97,113 +97,41 @@ Test the full HTTP to Kafka pipeline:
 ./test_comprehensive.sh
 ```
 
-## Packaging (what’s in the archive and how to use it)
+## Build and package the SDK (run from repo root)
 
-- The generated archive contains exactly:
-  - `include/traffic_processor/*.hpp` (public headers)
-  - `lib/libtraffic_processor_sdk.a` (static library)
-  - No runtime daemons or tools; this is a middleware SDK meant to be linked into your server.
+Pick ONE path. Both produce the same SDK outputs.
 
-Build the archive for your OS/arch:
+- Option A: If you already have deps (librdkafka/fmt/json) installed
 
-```bash
-cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
-cmake --build build --parallel
-cmake --install build --prefix install
-cpack --config build/CPackConfig.cmake
-```
+  ```bash
+  cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -DTRAFFIC_SDK_BUILD_EXAMPLES=OFF
+  cmake --build build --parallel
+  cmake --install build --prefix install
+  cpack --config build/CPackConfig.cmake
+  ```
 
-This produces `traffic-processing-sdk-<version>-<OS>-<arch>.{tar.gz,zip}` at repo root.
+- Option B: If you want deps resolved automatically (vcpkg)
+  ```bash
+  git clone https://github.com/microsoft/vcpkg "$HOME/vcpkg" && "$HOME/vcpkg/bootstrap-vcpkg.sh" -disableMetrics
+  export VCPKG_ROOT=$HOME/vcpkg
+  cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -DTRAFFIC_SDK_BUILD_EXAMPLES=OFF \
+    -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake -DVCPKG_FEATURE_FLAGS=manifests,versions
+  cmake --build build --parallel
+  cmake --install build --prefix install
+  cpack --config build/CPackConfig.cmake
+  ```
 
-Use the archive directly (manual link example):
+### Outputs
 
-```bash
-tar -xzf traffic-processing-sdk-<version>-<OS>-<arch>.tar.gz
-export SDK_PREFIX="$PWD/traffic-processing-sdk-<version>-<OS>-<arch>"
-g++ -std=c++17 -I"$SDK_PREFIX/include" your_server.cpp -L"$SDK_PREFIX/lib" -ltraffic_processor_sdk -lrdkafka -lfmt -lpthread -o your_server
-```
+- install/include/traffic_processor/\*.hpp
+- install/lib/libtraffic_processor_sdk.a
+- traffic-processing-sdk-<version>-<OS>-<arch>.{tar.gz,zip} (same content as install/)
 
-Or consume as source via CMake (recommended): add the repo with FetchContent and link the `traffic_processor_sdk` target.
+## How to use (follow the example)
 
-## Use as an SDK
+- Open `examples/crow_echo_server/main.cpp` and mirror the pattern: initialize once at startup, call `capture(r, s)` per request, shutdown on exit.
+- Link the SDK in your app by either:
+  - Adding this repo via CMake FetchContent and `target_link_libraries(your_app PRIVATE traffic_processor_sdk)`, or
+  - Unpacking the archive and adding `-I<archive>/include` and linking `-L<archive>/lib -ltraffic_processor_sdk` (plus RdKafka/fmt if your toolchain needs it).
 
-- In your C++ server, initialize once and call `capture(request, response)` per request.
-- See `examples/crow_echo_server/main.cpp` for a minimal integration.
-
-### Use as middleware in your server (framework-agnostic)
-
-```cpp
-#include "traffic_processor/sdk.hpp"
-using namespace traffic_processor;
-
-// At startup
-SdkConfig cfg;                 // set fields or read env (KAFKA_URL, KAFKA_BATCH_* ...)
-cfg.kafka.bootstrapServers = "kafka:19092";
-cfg.kafka.topic = "http.traffic";
-TrafficProcessorSdk::instance().initialize(cfg);
-
-// Around each request
-RequestData r;  /* fill method, path, headers, bodyText/bodyBase64, ip, startNs */
-ResponseData s; /* fill status, headers, bodyText/bodyBase64, endNs */
-TrafficProcessorSdk::instance().capture(r, s);
-
-// On shutdown
-TrafficProcessorSdk::instance().shutdown();
-```
-
-Common environment variables (optional):
-
-- `KAFKA_URL` (e.g., `kafka:19092` inside Docker)
-- `KAFKA_TOPIC` (default `http.traffic`)
-- `KAFKA_BATCH_TIMEOUT` (linger.ms)
-- `KAFKA_BATCH_SIZE` (batch.num.messages)
-- `KAFKA_BATCH_SIZE_BYTES` (batch.size)
-- `KAFKA_BUFFER_MAX_MESSAGES`, `KAFKA_BUFFER_MAX_KBYTES`
-- `KAFKA_ACKS`, `KAFKA_COMPRESSION`, `KAFKA_REQUEST_TIMEOUT_MS`
-
-## Build & package SDK via vcpkg (cross‑platform)
-
-### Linux/macOS
-
-```bash
-# Prereqs (Linux):
-sudo apt-get update && sudo apt-get install -y git cmake build-essential pkg-config
-
-# vcpkg (once)
-git clone https://github.com/microsoft/vcpkg $HOME/vcpkg
-$HOME/vcpkg/bootstrap-vcpkg.sh -disableMetrics
-export VCPKG_ROOT=$HOME/vcpkg
-
-# Clean, configure (SDK only), build, install, package
-rm -rf build install *.tar.gz *.zip
-cmake -B build -S . \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DTRAFFIC_SDK_BUILD_EXAMPLES=OFF \
-  -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake \
-  -DVCPKG_FEATURE_FLAGS=manifests,versions
-cmake --build build --parallel
-cmake --install build --prefix install
-cpack --config build/CPackConfig.cmake
-```
-
-### Windows (PowerShell)
-
-```powershell
-# Prereqs: Visual Studio with C++ CMake tools
-git clone https://github.com/microsoft/vcpkg $env:USERPROFILE\vcpkg
-& $env:USERPROFILE\vcpkg\bootstrap-vcpkg.bat -disableMetrics
-$env:VCPKG_ROOT = "$env:USERPROFILE\vcpkg"
-
-Remove-Item -Recurse -Force build, install -ErrorAction SilentlyContinue; Get-ChildItem *.zip,*.tar.gz | Remove-Item -Force -ErrorAction SilentlyContinue
-cmake -B build -S . `
-  -DCMAKE_BUILD_TYPE=Release `
-  -DTRAFFIC_SDK_BUILD_EXAMPLES=OFF `
-  -DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake `
-  -DVCPKG_FEATURE_FLAGS=manifests,versions
-cmake --build build --parallel
-cmake --install build --prefix install
-cpack --config build/CPackConfig.cmake
-```
-
-- Artifacts: `traffic-processing-sdk-<version>-<OS>-<arch>.{tar.gz,zip}` at repo root.
-- Installed layout: `install/include`, `install/lib`.
+That’s it. The SDK is framework‑agnostic and works with Crow, Drogon, Oat++, Pistache, Boost.Beast, etc.
