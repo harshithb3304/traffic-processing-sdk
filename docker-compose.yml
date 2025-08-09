@@ -39,7 +39,8 @@ services:
     # Load runtime env overrides from project .env (host-side). This passes
     # KAFKA_* variables into the container process so the SDK sees them.
     env_file:
-      - .env
+      - path: .env
+        required: false
     ports:
       - "8080:8080"
     depends_on:
