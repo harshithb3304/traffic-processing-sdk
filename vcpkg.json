@@ -1,10 +1,5 @@
 {
   "name": "traffic-processor-sdk",
   "version-string": "0.1.0",
-  "dependencies": [
-    "fmt",
-    "nlohmann-json",
-    "cppkafka",
-    "crow"
-  ]
+  "dependencies": ["fmt", "nlohmann-json", "cppkafka", "crow"]
 }

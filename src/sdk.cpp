@@ -1,6 +1,7 @@
 #include "traffic_processor/sdk.hpp"
 
 #include <chrono>
+#include <iostream>
 #include <nlohmann/json.hpp>
 
 using namespace traffic_processor;
@@ -15,10 +16,18 @@ void TrafficProcessorSdk::initialize()
 {
     // Simple local configuration - no environment variables needed
     SdkConfig config; // Uses all default values
+    initialize(config);
+}
+
+void TrafficProcessorSdk::initialize(const SdkConfig &config)
+{
     cfg_ = config;
     producer_ = std::make_unique<KafkaProducer>(cfg_.kafka);
+    // No worker thread needed - sending directly to Kafka
+
+    // Start a simple polling thread for rdkafka housekeeping
     stop_ = false;
-    worker_ = std::thread(&TrafficProcessorSdk::workerLoop, this);
+    worker_ = std::thread(&TrafficProcessorSdk::pollingLoop, this);
 }
 
 TrafficProcessorSdk::~TrafficProcessorSdk()
@@ -31,9 +40,20 @@ void TrafficProcessorSdk::shutdown()
     bool expected = false;
     if (stop_.compare_exchange_strong(expected, true))
     {
-        cv_.notify_all();
         if (worker_.joinable())
             worker_.join();
+    }
+}
+
+void TrafficProcessorSdk::printKafkaStats()
+{
+    if (producer_)
+    {
+        producer_->printStats();
+    }
+    else
+    {
+        std::cout << "SDK not initialized" << std::endl;
     }
 }
 
@@ -74,53 +94,29 @@ void TrafficProcessorSdk::capture(const RequestData &req, const ResponseData &re
     }
 
     std::string serialized = j.dump();
+
+    // Send directly to Kafka - no queue needed! rdkafka has its own internal queue
+    if (producer_)
     {
-        std::lock_guard<std::mutex> lk(mtx_);
-        queue_.push(std::move(serialized));
+        producer_->send(serialized);
     }
-    cv_.notify_one();
 }
 
-void TrafficProcessorSdk::workerLoop()
+void TrafficProcessorSdk::pollingLoop()
 {
-    std::unique_lock<std::mutex> lk(mtx_);
+    // Simple polling loop for rdkafka housekeeping only
     while (!stop_)
     {
-        if (queue_.empty())
+        if (producer_)
         {
-            cv_.wait_for(lk, std::chrono::milliseconds(100)); // Short wait for new messages
+            producer_->poll(100); // Poll for delivery reports and statistics
         }
-
-        while (!queue_.empty())
-        {
-            std::string next;
-            next = std::move(queue_.front());
-            queue_.pop();
-            lk.unlock();
-            try
-            {
-                producer_->send(next);
-            }
-            catch (...)
-            {
-            }
-            lk.lock();
-        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
-    // Drain any remaining messages after stop is signaled
-    while (!queue_.empty())
+    // Final flush on shutdown
+    if (producer_)
     {
-        std::string next = std::move(queue_.front());
-        queue_.pop();
-        lk.unlock();
-        try
-        {
-            producer_->send(next);
-        }
-        catch (...)
-        {
-        }
-        lk.lock();
+        producer_->flush(2000);
     }
 }

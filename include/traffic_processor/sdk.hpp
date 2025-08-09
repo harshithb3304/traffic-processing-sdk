@@ -2,9 +2,6 @@
 
 #include <string>
 #include <vector>
-#include <mutex>
-#include <condition_variable>
-#include <queue>
 #include <thread>
 #include <atomic>
 
@@ -47,9 +44,11 @@ namespace traffic_processor
     {
     public:
         static TrafficProcessorSdk &instance();
-        void initialize(); // Simple initialization with defaults
+        void initialize();                        // Simple initialization with defaults
+        void initialize(const SdkConfig &config); // Initialize with custom config
         void capture(const RequestData &req, const ResponseData &res);
         void shutdown();
+        void printKafkaStats(); // Print current Kafka producer statistics
 
     private:
         TrafficProcessorSdk() = default;
@@ -57,14 +56,11 @@ namespace traffic_processor
         TrafficProcessorSdk(const TrafficProcessorSdk &) = delete;
         TrafficProcessorSdk &operator=(const TrafficProcessorSdk &) = delete;
 
-        void workerLoop();
+        void pollingLoop();
 
         SdkConfig cfg_{};
         std::unique_ptr<KafkaProducer> producer_;
 
-        std::mutex mtx_;
-        std::condition_variable cv_;
-        std::queue<std::string> queue_;
         std::atomic<bool> stop_{false};
         std::thread worker_;
     };
