@@ -72,6 +72,11 @@ docker compose down
 - Local Kafka ports: 9092 (host) and 19092 (internal Docker network).
 - No credentials are required for this local setup.
 
+## Examples included
+
+- `examples/crow_echo_server/`: Minimal echo server wired with the SDK. This is what the Docker image runs by default. Hitting `/echo` captures request/response and sends to Kafka.
+- `examples/crow_consumer_demo/`: Same idea, but kept tiny to showcase SDK-only consumption; suitable as a reference to embed in your own Crow/Drogon/etc. projects.
+
 ## Testing
 
 ### Unit Tests
@@ -92,9 +97,14 @@ Test the full HTTP to Kafka pipeline:
 ./test_comprehensive.sh
 ```
 
-## Packaging (single archive)
+## Packaging (what’s in the archive and how to use it)
 
-Build and create a universal archive (per OS) containing the SDK library and headers:
+- The generated archive contains exactly:
+  - `include/traffic_processor/*.hpp` (public headers)
+  - `lib/libtraffic_processor_sdk.a` (static library)
+  - No runtime daemons or tools; this is a middleware SDK meant to be linked into your server.
+
+Build the archive for your OS/arch:
 
 ```bash
 cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
@@ -103,12 +113,53 @@ cmake --install build --prefix install
 cpack --config build/CPackConfig.cmake
 ```
 
-This produces a `traffic-processing-sdk-<version>-<OS>-<arch>.tar.gz` (and `.zip`) in the project root (or build dir), which you can distribute for Linux/macOS/Windows.
+This produces `traffic-processing-sdk-<version>-<OS>-<arch>.{tar.gz,zip}` at repo root.
+
+Use the archive directly (manual link example):
+
+```bash
+tar -xzf traffic-processing-sdk-<version>-<OS>-<arch>.tar.gz
+export SDK_PREFIX="$PWD/traffic-processing-sdk-<version>-<OS>-<arch>"
+g++ -std=c++17 -I"$SDK_PREFIX/include" your_server.cpp -L"$SDK_PREFIX/lib" -ltraffic_processor_sdk -lrdkafka -lfmt -lpthread -o your_server
+```
+
+Or consume as source via CMake (recommended): add the repo with FetchContent and link the `traffic_processor_sdk` target.
 
 ## Use as an SDK
 
 - In your C++ server, initialize once and call `capture(request, response)` per request.
 - See `examples/crow_echo_server/main.cpp` for a minimal integration.
+
+### Use as middleware in your server (framework-agnostic)
+
+```cpp
+#include "traffic_processor/sdk.hpp"
+using namespace traffic_processor;
+
+// At startup
+SdkConfig cfg;                 // set fields or read env (KAFKA_URL, KAFKA_BATCH_* ...)
+cfg.kafka.bootstrapServers = "kafka:19092";
+cfg.kafka.topic = "http.traffic";
+TrafficProcessorSdk::instance().initialize(cfg);
+
+// Around each request
+RequestData r;  /* fill method, path, headers, bodyText/bodyBase64, ip, startNs */
+ResponseData s; /* fill status, headers, bodyText/bodyBase64, endNs */
+TrafficProcessorSdk::instance().capture(r, s);
+
+// On shutdown
+TrafficProcessorSdk::instance().shutdown();
+```
+
+Common environment variables (optional):
+
+- `KAFKA_URL` (e.g., `kafka:19092` inside Docker)
+- `KAFKA_TOPIC` (default `http.traffic`)
+- `KAFKA_BATCH_TIMEOUT` (linger.ms)
+- `KAFKA_BATCH_SIZE` (batch.num.messages)
+- `KAFKA_BATCH_SIZE_BYTES` (batch.size)
+- `KAFKA_BUFFER_MAX_MESSAGES`, `KAFKA_BUFFER_MAX_KBYTES`
+- `KAFKA_ACKS`, `KAFKA_COMPRESSION`, `KAFKA_REQUEST_TIMEOUT_MS`
 
 ## Build & package SDK via vcpkg (cross‑platform)
 

@@ -13,6 +13,7 @@ RUN curl -sSL https://github.com/CrowCpp/Crow/archive/refs/tags/v1.1.0.tar.gz \
 COPY include/ include/
 COPY src/ src/
 COPY examples/crow_echo_server/ examples/crow_echo_server/
+COPY examples/crow_consumer_demo/ examples/crow_consumer_demo/
 
 COPY <<EOF CMakeLists.txt
 cmake_minimum_required(VERSION 3.16)
@@ -25,6 +26,8 @@ target_include_directories(traffic_processor_sdk PUBLIC \${CMAKE_CURRENT_SOURCE_
 target_link_libraries(traffic_processor_sdk PUBLIC \${RDKAFKA_LIBRARIES} fmt pthread)
 add_executable(crow_echo_server examples/crow_echo_server/main.cpp)
 target_link_libraries(crow_echo_server PRIVATE traffic_processor_sdk pthread)
+add_executable(crow_consumer_demo examples/crow_consumer_demo/main.cpp)
+target_link_libraries(crow_consumer_demo PRIVATE traffic_processor_sdk pthread)
 EOF
 
 RUN cmake -B build -S . && cmake --build build --parallel $(nproc)
