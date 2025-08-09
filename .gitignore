@@ -42,6 +42,11 @@ logs/
 # Docker
 .dockerignore
 
+# Packaging outputs
+install/
+*.zip
+*.tar.gz
+
 # Operating System
 .DS_Store
 Thumbs.db

@@ -13,11 +13,6 @@ static SdkConfig buildConfigFromEnv()
 {
     SdkConfig cfg;
 
-    if (const char *acc = std::getenv("AKTO_ACCOUNT_ID"))
-    {
-        cfg.accountId = acc;
-    }
-
     if (const char *url = std::getenv("KAFKA_URL"))
     {
         cfg.kafka.bootstrapServers = url;
