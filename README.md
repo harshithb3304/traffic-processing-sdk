@@ -2,6 +2,8 @@
 
 Minimal SDK and demo server to capture HTTP requests/responses and stream them to a local Kafka topic.
 
+**Note: Demo server currently supports GET and POST methods only on `/echo` endpoint.**
+
 ## What this does
 
 - Starts a Crow-based HTTP server on http://localhost:8080

@@ -63,6 +63,32 @@ KafkaProducer::~KafkaProducer()
     }
 }
 
+void KafkaProducer::send(const std::string &jsonRecord)
+{
+    if (!producer_ || !topic_)
+    {
+        std::cerr << "Kafka producer not initialized" << std::endl;
+        return;
+    }
+
+    int result = rd_kafka_produce(
+        topic_,
+        RD_KAFKA_PARTITION_UA, // automatic partitioning
+        RD_KAFKA_MSG_F_COPY,
+        const_cast<char *>(jsonRecord.c_str()),
+        jsonRecord.length(),
+        nullptr, 0,
+        nullptr);
+
+    if (result == -1)
+    {
+        std::cerr << "Failed to produce message: " << rd_kafka_err2str(rd_kafka_last_error()) << std::endl;
+    }
+
+    // Service callbacks without blocking
+    rd_kafka_poll(producer_, 0);
+}
+
 void KafkaProducer::sendBatch(const std::vector<std::string> &jsonRecords)
 {
     if (!producer_ || !topic_)

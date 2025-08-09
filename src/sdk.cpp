@@ -83,59 +83,44 @@ void TrafficProcessorSdk::capture(const RequestData &req, const ResponseData &re
 
 void TrafficProcessorSdk::workerLoop()
 {
-    std::vector<std::string> batch;
-    batch.reserve(cfg_.batchSize);
-    auto lastFlush = std::chrono::steady_clock::now();
-
     std::unique_lock<std::mutex> lk(mtx_);
     while (!stop_)
     {
         if (queue_.empty())
         {
-            cv_.wait_for(lk, std::chrono::milliseconds(cfg_.batchTimeoutMs));
+            cv_.wait_for(lk, std::chrono::milliseconds(100)); // Short wait for new messages
         }
 
-        while (!queue_.empty() && batch.size() < cfg_.batchSize)
+        while (!queue_.empty())
         {
-            batch.emplace_back(std::move(queue_.front()));
+            std::string next;
+            next = std::move(queue_.front());
             queue_.pop();
-        }
-
-        auto now = std::chrono::steady_clock::now();
-        bool timeExceeded = (now - lastFlush) >= std::chrono::milliseconds(cfg_.batchTimeoutMs);
-        bool sizeExceeded = batch.size() >= cfg_.batchSize;
-        if ((!batch.empty()) && (timeExceeded || sizeExceeded))
-        {
-            auto toSend = std::move(batch);
-            batch.clear();
-            lastFlush = now;
             lk.unlock();
             try
             {
-                producer_->sendBatch(toSend);
+                producer_->send(next);
             }
-            catch (const std::exception &)
+            catch (...)
             {
-                // swallow to keep the loop running
             }
             lk.lock();
         }
     }
 
-    // drain on shutdown
+    // Drain any remaining messages after stop is signaled
     while (!queue_.empty())
     {
-        batch.emplace_back(std::move(queue_.front()));
+        std::string next = std::move(queue_.front());
         queue_.pop();
-    }
-    if (!batch.empty())
-    {
+        lk.unlock();
         try
         {
-            producer_->sendBatch(batch);
+            producer_->send(next);
         }
         catch (...)
         {
         }
+        lk.lock();
     }
 }

@@ -17,8 +17,6 @@ namespace traffic_processor
     struct SdkConfig
     {
         std::string accountId{"local-traffic-processor"};
-        std::size_t batchSize{100};
-        int batchTimeoutMs{5000};
         KafkaConfig kafka; // Uses default localhost:9092
     };
 
