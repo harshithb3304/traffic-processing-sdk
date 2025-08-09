@@ -46,6 +46,7 @@ logs/
 install/
 *.zip
 *.tar.gz
+_CPack_Packages/
 
 # Operating System
 .DS_Store
