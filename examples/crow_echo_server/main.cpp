@@ -5,8 +5,99 @@
 
 #include <chrono>
 #include <iostream>
+#include <cstdlib>
 
 using namespace traffic_processor;
+
+static SdkConfig buildConfigFromEnv()
+{
+    SdkConfig cfg;
+
+    if (const char *acc = std::getenv("AKTO_ACCOUNT_ID"))
+    {
+        cfg.accountId = acc;
+    }
+
+    if (const char *url = std::getenv("KAFKA_URL"))
+    {
+        cfg.kafka.bootstrapServers = url;
+    }
+    if (const char *topic = std::getenv("KAFKA_TOPIC"))
+    {
+        cfg.kafka.topic = topic;
+    }
+    if (const char *comp = std::getenv("KAFKA_COMPRESSION"))
+    {
+        cfg.kafka.compression = comp;
+    }
+    if (const char *acks = std::getenv("KAFKA_ACKS"))
+    {
+        cfg.kafka.acks = acks;
+    }
+
+    if (const char *linger = std::getenv("KAFKA_BATCH_TIMEOUT"))
+    {
+        try
+        {
+            cfg.kafka.lingerMs = std::stoi(linger);
+        }
+        catch (...)
+        {
+        }
+    }
+    if (const char *bnm = std::getenv("KAFKA_BATCH_SIZE"))
+    {
+        try
+        {
+            cfg.kafka.batchNumMessages = std::stoi(bnm);
+        }
+        catch (...)
+        {
+        }
+    }
+    if (const char *bs = std::getenv("KAFKA_BATCH_SIZE_BYTES"))
+    {
+        try
+        {
+            cfg.kafka.batchSizeBytes = std::stoi(bs);
+        }
+        catch (...)
+        {
+        }
+    }
+    if (const char *rq = std::getenv("KAFKA_REQUEST_TIMEOUT_MS"))
+    {
+        try
+        {
+            cfg.kafka.requestTimeoutMs = std::stoi(rq);
+        }
+        catch (...)
+        {
+        }
+    }
+    if (const char *rb = std::getenv("KAFKA_BUFFER_MAX_MESSAGES"))
+    {
+        try
+        {
+            cfg.kafka.queueBufferingMaxMessages = std::stoi(rb);
+        }
+        catch (...)
+        {
+        }
+    }
+    if (const char *rk = std::getenv("KAFKA_BUFFER_MAX_KBYTES"))
+    {
+        try
+        {
+            cfg.kafka.queueBufferingMaxKbytes = std::stoi(rk);
+        }
+        catch (...)
+        {
+        }
+    }
+
+    return cfg;
+}
 
 static std::string maybe_base64(const std::string &body)
 {
@@ -19,7 +110,9 @@ int main(int argc, char **argv)
     (void)argv;
 
     std::cout << "Starting Traffic Processor SDK Demo Server..." << std::endl;
-    TrafficProcessorSdk::instance().initialize(); // Simple local setup
+    // Build a single object with all parameters (object-based config)
+    SdkConfig cfg = buildConfigFromEnv();
+    TrafficProcessorSdk::instance().initialize(cfg);
     std::cout << "SDK initialized successfully" << std::endl;
 
     crow::SimpleApp app;

@@ -2,8 +2,6 @@
 
 #include <string>
 #include <vector>
-#include <thread>
-#include <atomic>
 
 #include <nlohmann/json.hpp>
 #include "traffic_processor/kafka_producer.hpp"
@@ -56,13 +54,8 @@ namespace traffic_processor
         TrafficProcessorSdk(const TrafficProcessorSdk &) = delete;
         TrafficProcessorSdk &operator=(const TrafficProcessorSdk &) = delete;
 
-        void pollingLoop();
-
         SdkConfig cfg_{};
         std::unique_ptr<KafkaProducer> producer_;
-
-        std::atomic<bool> stop_{false};
-        std::thread worker_;
     };
 
 } // namespace traffic_processor

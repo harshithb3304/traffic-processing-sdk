@@ -80,3 +80,29 @@ Test the full HTTP to Kafka pipeline:
 
 - In your C++ server, initialize once and call `capture(request, response)` per request.
 - See `examples/crow_echo_server/main.cpp` for a minimal integration.
+
+### Parameter-based integration (recommended)
+
+The SDK is configured via parameters. Provide only what you need; everything else uses sensible defaults.
+
+```cpp
+#include "traffic_processor/sdk.hpp"
+using namespace traffic_processor;
+
+SdkConfig cfg;
+cfg.accountId = "your-account-id";                 // optional
+cfg.kafka.bootstrapServers = "broker:9092";        // set any you need
+cfg.kafka.topic = "http.traffic";                  // optional
+cfg.kafka.compression = "lz4";                     // optional
+cfg.kafka.acks = "1";                               // optional
+
+// Override any librdkafka property (advanced)
+cfg.kafka.extraProperties["linger.ms"] = "10000";            // batch timeout
+cfg.kafka.extraProperties["batch.num.messages"] = "100";     // batch size (messages)
+cfg.kafka.extraProperties["batch.size"] = "32768";           // batch size (bytes)
+
+TrafficProcessorSdk::instance().initialize(cfg);
+```
+
+- Any field you omit falls back to defaults (local Kafka, topic `http.traffic`, batching enabled).
+- Alternatively, you can use environment variables (e.g., `KAFKA_URL`, `KAFKA_TOPIC`). The Crow example loads a `.env` file automatically at startup.

@@ -1,3 +1,4 @@
+.env
 # C++ Build Artifacts
 build/
 out/

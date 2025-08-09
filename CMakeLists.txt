@@ -12,9 +12,10 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 # vcpkg manifest mode is assumed (vcpkg.json present in repo)
 
 find_package(nlohmann_json CONFIG REQUIRED)
-find_package(CppKafka CONFIG REQUIRED)
-find_package(Crow CONFIG REQUIRED)
 find_package(fmt CONFIG REQUIRED)
+find_package(RdKafka CONFIG REQUIRED)
+
+option(TRAFFIC_SDK_BUILD_EXAMPLES "Build example servers/binaries" ON)
 
 add_library(traffic_processor_sdk
   src/kafka_producer.cpp
@@ -24,26 +25,29 @@ target_include_directories(traffic_processor_sdk PUBLIC ${CMAKE_CURRENT_SOURCE_D
 target_link_libraries(traffic_processor_sdk
   PUBLIC
     nlohmann_json::nlohmann_json
-    CppKafka::cppkafka
     RdKafka::rdkafka
     fmt::fmt
 )
 
-add_executable(crow_echo_server examples/crow_echo_server/main.cpp)
+if(TRAFFIC_SDK_BUILD_EXAMPLES)
+  find_package(Crow CONFIG REQUIRED)
+  add_executable(crow_echo_server examples/crow_echo_server/main.cpp)
 
-# Platform-specific libraries
-if(WIN32)
-    set(PLATFORM_LIBS ws2_32 mswsock)
-else()
-    set(PLATFORM_LIBS pthread)
+  # Platform-specific libraries
+  if(WIN32)
+      set(PLATFORM_LIBS ws2_32 mswsock)
+  else()
+      set(PLATFORM_LIBS pthread)
+  endif()
+
+  target_link_libraries(crow_echo_server PRIVATE 
+      traffic_processor_sdk 
+      Crow::Crow
+      ${PLATFORM_LIBS}
+  )
+  set_target_properties(crow_echo_server PROPERTIES FOLDER examples)
+  install(TARGETS crow_echo_server)
 endif()
 
-target_link_libraries(crow_echo_server PRIVATE 
-    traffic_processor_sdk 
-    Crow::Crow
-    ${PLATFORM_LIBS}
-)
-set_target_properties(crow_echo_server PROPERTIES FOLDER examples)
-
-install(TARGETS traffic_processor_sdk crow_echo_server)
+install(TARGETS traffic_processor_sdk)
 
